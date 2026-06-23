@@ -1,5 +1,19 @@
 import { create } from "zustand";
 
+export const formatSize = (bytes: number): string => {
+  if (bytes === 0) return "0 bytes";
+
+  const unit = 1024;
+  const units = ["bytes", "KB", "MB", "GB", "TB"];
+  const index = Math.min(
+    Math.floor(Math.log(bytes) / Math.log(unit)),
+    units.length - 1
+  );
+  const value = bytes / Math.pow(unit, index);
+
+  return `${value.toFixed(index > 0 ? 2 : 0)} ${units[index]}`;
+};
+
 declare global {
   interface Window {
     puter: {
@@ -349,8 +363,7 @@ export const usePuterStore = create<PuterStore>((set, get) => {
             },
           ],
         },
-      ],
-      { model: "claude-sonnet-4" }
+      ]
     ) as Promise<AIResponse | undefined>;
   };
 
