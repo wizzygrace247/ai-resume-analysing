@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams, type NavigateFunction } from 'react-router';
+import { Link, useNavigate, useParams } from 'react-router';
+import Summary from '~/components/Summary';
+import Details from '~/components/Details';
+import ATS from '~/components/ATS';
 import { usePuterStore } from '~/lib/puter';
 
 export const meta = () => ([
@@ -13,7 +16,7 @@ const Resume = () => {
     const [imageURL, setImageUrl] = useState('');
     const [resumeURL, setResumeUrl] = useState('');
     const [feedback, setFeedback] = useState<Feedback | null>(null);
-    const navigate: NavigateFunction = useNavigate();
+    const navigate = useNavigate(); // ✅ removed unnecessary NavigateFunction type
 
     useEffect(() => {
         if (!isLoading && !auth.isAuthenticated) {
@@ -21,40 +24,35 @@ const Resume = () => {
         }
     }, [auth.isAuthenticated, isLoading]);
 
-
     useEffect(() => {
         const loadResume = async () => {
-            if (!id) {
-                navigate('/upload');
-                return;
-            }
+            if (!id) return;
 
             const resume = await kv.get(`resume:${id}`);
             if (!resume) {
-                navigate('/upload');
+                setTimeout(() => navigate('/upload'), 1000);
                 return;
             }
 
             const data = JSON.parse(resume);
+
             const resumeBlob = await fs.read(data.resumepath);
             if (!resumeBlob) {
-                navigate('/upload');
+                setTimeout(() => navigate('/upload'), 1000);
                 return;
             }
 
             const pdfBlob = new Blob([resumeBlob], { type: 'application/pdf' });
-            const resumeUrl = URL.createObjectURL(pdfBlob);
-            setResumeUrl(resumeUrl);
+            setResumeUrl(URL.createObjectURL(pdfBlob));
 
             const imageBlob = await fs.read(data.imagePath);
             if (!imageBlob) {
-                navigate('/upload');
+                setTimeout(() => navigate('/upload'), 1000);
                 return;
             }
 
             setImageUrl(URL.createObjectURL(imageBlob));
             setFeedback(data.feedback);
-            console.log({ imageURL, resumeURL, feedback: data.feedback });
         };
 
         void loadResume();
@@ -65,41 +63,42 @@ const Resume = () => {
             <nav className="resume-nav">
                 <Link to="/" className="back-button">
                     <img src="/images/back.svg" alt="back" className="w-2.5 h-2.5" />
-                    <span className=" text-grey-800 text-sm font-semibold">Back to Homepage</span>
+                    <span className="text-gray-800 text-sm font-semibold">Back to Homepage</span>
                 </Link>
             </nav>
-            <div className="flex flex-row w-full max-lg:flex-col-reverse">
-                <section className="feedback-section ">
 
-                    {imageURL && resumeURL ? (
-                        <div className="animate-in fade-in duration-1000 gradient-border smax-sm:m-0 h-[90%] max-wxl:h-fit">
-                            <a href={resumeURL} target="_blank" rel="noonpener noreferrer"></a>
-                            <img
-                                src={imageURL}
-                                alt="Resume preview"
-                                className="w-full h-auto object-contain"
-                            />
-                        </div>
-                    ) : (
-                        <div className="text-center text-sm text-grey-600">Loading resume preview...</div>
-                    )} </section>
+            <div className="flex flex-row w-full max-lg:flex-col-reverse">
                 <section className="feedback-section">
-                    <h2 className='text-4xl !text-black font-bold'>Resume review</h2>
-                    {feedback ? (
-                        <div className="flex flex-col gap-8 animate-in fade-in duration-1000 ">
-                            <summary feedback ={feedback} />
-                            <ATS score = {feedback.ATS.score || 0}  {feedback.ATS.tips || {}}/>
-                            <Details feedback ={feedback}/>
+                    {imageURL && resumeURL ? (
+                        <div className="animate-in fade-in duration-1000 gradient-border h-[90%] max-xl:h-fit">
+                            <a href={resumeURL} target="_blank" rel="noopener noreferrer"> {/* ✅ fixed typo */}
+                                <img
+                                    src={imageURL}
+                                    alt="Resume preview"
+                                    className="w-full h-auto object-contain"
+                                />
+                            </a>
                         </div>
                     ) : (
-                        <img src="/images/image-1.gif" alt="loading" className="w-6 h-6 animate-spin" />
+                        <div className="text-center text-sm text-gray-600">Loading resume preview...</div>
                     )}
                 </section>
 
+                <section className="feedback-section">
+                    <h2 className="text-4xl !text-black font-bold">Resume review</h2>
+                    {feedback ? (
+                        <div className="flex flex-col gap-8 animate-in fade-in duration-1000">
+                            <Summary feedback={feedback} />
+                            <Details feedback={feedback} />
+                            <ATS score={feedback.ATS.score} suggestions={feedback.ATS.tips} />
+                        </div>
+                    ) : (
+                        <img src="/images/scan.svg" alt="loading" className="w-16 h-16" />
+                    )}
+                </section>
             </div>
         </main>
-    )
-
-}
+    );
+};
 
 export default Resume;
