@@ -1,5 +1,3 @@
-
-
 interface Resume {
   id: string;
   companyName?: string;
@@ -50,6 +48,17 @@ interface Feedback {
       explanation: string;
     }[];
   };
+}
+
+interface TailoredResume {
+  summary: string;
+  experience: {
+    role: string;
+    company: string;
+    bullets: string[];
+  }[];
+  skills: string[];
+  changesExplained: string[];
 }
 
 declare module 'pdfjs-dist/build/pdf.mjs';

@@ -1,8 +1,7 @@
 import type { Config } from "@react-router/dev/config";
 
 export default {
-  // Config options...
-  // Server-side render by default, to enable SPA mode set this to `false`
+  // Enable SSR so resource routes can handle POST requests via route actions.
   ssr: true,
   future: {
     v8_middleware: true,

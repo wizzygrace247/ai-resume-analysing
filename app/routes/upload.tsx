@@ -4,11 +4,11 @@ import FileUploader from '~/components/Fileuploader'
 import { usePuterStore } from '~/lib/puter'
 import { useNavigate } from 'react-router'
 import { convertPdfToImage } from '~/lib/pdf2img'
+import { extractResumeText } from '~/lib/pdftext'
 import { generateUUID } from '~/lib/utils'
-import { prepareInstructions } from '~/constants'
 
 const Upload = () => {
-  const { auth, isLoading, fs, ai, kv } = usePuterStore();
+  const { auth, isLoading, fs, kv } = usePuterStore();
   const navigate = useNavigate();
   const [isProcessing, setIsProcessing] = React.useState(false);
   const [statusText, setStatusText] = useState('');
@@ -37,34 +37,50 @@ const Upload = () => {
     setStatusText('preparing Data......');
 
 
+    setStatusText('Reading resume text.....');
+    const extracted = await extractResumeText(file);
+    if (!extracted.text) {
+      return setStatusText(`Error: ${extracted.error ?? 'could not read resume text'}`);
+    }
+
     const uuid = generateUUID();
     const data = {
       id: uuid,
       resumepath: uploadedFile.path,
       imagePath: uploadedImage.path,
+      resumeText: extracted.text,
       companyName, jobTitle, jobDescription,
-      feedback: '',
+      feedback: '' as string | Feedback,
     }
     await kv.set(`resume:${uuid}`, JSON.stringify(data));
 
     setStatusText('Analyzing....');
 
+    let feedback: Feedback;
+    try {
+      const response = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          resumeText: extracted.text,
+          jobTitle,
+          jobDescription,
+        }),
+      });
 
-    const feedback = await ai.feedback(
-      uploadedFile.path,
-      prepareInstructions({ jobTitle, jobDescription })
-    )
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => ({}));
+        throw new Error(errorBody.error ?? `Request failed with status ${response.status}`);
+      }
 
-    if (!feedback) return setStatusText('Error: to analyze resume');
+      feedback = await response.json();
+    } catch (err) {
+      return setStatusText(`Error: failed to analyze resume. ${err instanceof Error ? err.message : ''}`);
+    }
 
-    const feedbackText = typeof feedback.message.content === 'string'
-      ? feedback.message.content
-      : feedback.message.content[0].text;
-
-    data.feedback = JSON.parse(feedbackText);
+    data.feedback = feedback;
     await kv.set(`resume:${uuid}`, JSON.stringify(data));
     setStatusText('analysis complete redirecting...');
-    console.log(data);
     navigate(`/resume/${uuid}`);
   }
 
@@ -84,7 +100,7 @@ const Upload = () => {
   }
 
   return (
-    <main className="bg-[url('/C:\\Users\\USER\\Desktop\\testing\\public\\images\\background.svg')] bg-cover bg-center bg-no-repeat bg-fixed min-h-screen">
+    <main className="bg-[url('/images/background.svg')] bg-cover bg-center bg-no-repeat bg-fixed min-h-screen">
       <Navbar />
 
       <section className="main-section">
